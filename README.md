@@ -21,7 +21,7 @@
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/yourusername/WhisperLive.git
+git clone https://github.com/monyuonyu/WhisperLive.git
 cd WhisperLive
 
 # 依存パッケージをインストール
