@@ -7,34 +7,46 @@ import threading
 import tempfile
 import argparse
 import numpy as np
-import collections
 from pydub import AudioSegment
 
+########################################################################
+# WhisperLiveTranscriber クラス
+########################################################################
 class WhisperLiveTranscriber:
     """
-    WhisperLive: リアルタイム音声転写クラス
+    リアルタイム音声文字起こしを行うクラス
     
-    マイクから音声を取得し、音声セグメントを自動検出して
-    OpenAI Whisper APIに送信してリアルタイムで文字起こしを行います。
+    マイク入力から音声を取得し、OpenAI Whisper APIを使用して
+    リアルタイムで文字起こしを行います。
+    
+    Attributes:
+        api_key (str): OpenAI APIキー
+        language (str): 文字起こし対象の言語
+        segment_length (int): 1セグメントの長さ（秒）
+        energy_threshold (int): 無音判定の閾値
+        confidence_threshold (float): 確信度の閾値
+        skip_silence (bool): 無音区間スキップの有効/無効
+        debug_mode (bool): デバッグモードの有効/無効
     """
     
+    ########################################################################
+    # コンストラクタ
+    ########################################################################
     def __init__(self, api_key, language='ja', sample_rate=16000, 
                  segment_length=10, energy_threshold=70, 
                  silence_duration=1.0, confidence_threshold=0.3,
                  skip_silence=True, debug_mode=False):
         """
-        WhisperLive転写クラスを初期化します
+        WhisperLiveTranscriberのインスタンスを初期化します。
         
-        引数:
-            api_key (str): OpenAI API Key
-            language (str): 言語コード (デフォルト: 'ja')
-            sample_rate (int): サンプルレート (デフォルト: 16000Hz)
-            segment_length (int): 1セグメントの最大長さ（秒）
-            energy_threshold (int): 無音判定の閾値 (0-1000)
-            silence_duration (float): 無音とみなす最小の長さ（秒）
-            confidence_threshold (float): 転写結果の確信度閾値 (0-1)
-            skip_silence (bool): 無音区間をスキップするかどうか
-            debug_mode (bool): デバッグログを表示するかどうか
+        Args:
+            api_key (str): OpenAI APIキー
+            language (str, optional): 文字起こし対象の言語. デフォルト "ja"
+            segment_length (int, optional): 1セグメントの長さ（秒）. デフォルト 10
+            energy_threshold (int, optional): 無音判定の閾値. デフォルト 70
+            confidence_threshold (float, optional): 確信度の閾値. デフォルト 0.5
+            skip_silence (bool, optional): 無音区間スキップの有効/無効. デフォルト True
+            debug_mode (bool, optional): デバッグモードの有効/無効. デフォルト False
         """
         self.api_key = api_key
         self.language = language
@@ -80,8 +92,15 @@ class WhisperLiveTranscriber:
         if self.debug_mode:
             print(f"[DEBUG] {message}")
     
+    ########################################################################
+    # 録音の開始
+    ########################################################################
     def start_recording(self):
-        """録音を開始し、処理スレッドを開始します"""
+        """
+        音声の録音を開始します。
+        
+        別スレッドで音声の取得と文字起こしを開始します。
+        """
         if self.is_recording:
             self._debug("既に録音中です")
             return
@@ -188,6 +207,9 @@ class WhisperLiveTranscriber:
                 self._debug(f"音声処理中にエラーが発生しました: {e}")
                 time.sleep(0.1)  # エラー時に少し待機
     
+    ########################################################################
+    # セグメントの処理
+    ########################################################################
     def _process_segment(self, frames):
         """
         検出された音声セグメントを処理します
@@ -216,6 +238,9 @@ class WhisperLiveTranscriber:
         processing_thread.daemon = True
         processing_thread.start()
         
+    ########################################################################
+    # 無音セグメントの判定
+    ########################################################################
     def _is_silent_segment(self, frames):
         """
         音声セグメントが無音かどうかを判定します
@@ -265,6 +290,9 @@ class WhisperLiveTranscriber:
         
         return is_silent
     
+    ########################################################################
+    # 転写結果の信頼度推定
+    ########################################################################
     def _get_transcript_confidence(self, text):
         """
         転写テキストから信頼度を推定します（ヒューリスティック）
@@ -305,6 +333,9 @@ class WhisperLiveTranscriber:
         
         return confidence
     
+    ########################################################################
+    # セグメントの文字起こし
+    ########################################################################
     def _transcribe_segment(self, frames):
         """
         音声セグメントをWhisper APIに送信して転写します
@@ -365,6 +396,9 @@ class WhisperLiveTranscriber:
             if self.debug_mode:
                 traceback.print_exc()
     
+    ########################################################################
+    # Whisper APIを使用した音声ファイルの転写
+    ########################################################################
     def _transcribe_audio(self, audio_file):
         """
         Whisper APIを使用して音声ファイルを転写します
@@ -404,12 +438,15 @@ class WhisperLiveTranscriber:
                 self._debug(f"API通信中にエラーが発生しました: {e}")
                 return ""
     
+    ########################################################################
+    # 録音の停止
+    ########################################################################
     def stop_recording(self):
         """
-        録音を停止し、最終結果を返します
+        音声の録音を停止します。
         
-        返値:
-            str: 全セグメントの転写結果を結合したテキスト
+        Returns:
+            str: 最終的な文字起こし結果
         """
         if not self.is_recording:
             self._debug("録音していません")
@@ -512,6 +549,8 @@ def main():
         if 'transcriber' in locals() and hasattr(transcriber, 'is_recording') and transcriber.is_recording:
             transcriber.stop_recording()
 
-
+########################################################################
+# エントリーポイント
+########################################################################
 if __name__ == "__main__":
     main()
