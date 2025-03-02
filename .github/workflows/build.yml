@@ -131,11 +131,13 @@ jobs:
         with:
           name: release_url
           
-      # リリースURLを環境変数に設定
+      # リリースURLを環境変数に設定（修正版：OSに依存しない書き方）
       - name: Get release file
         id: get_release_info
+        shell: bash
         run: |
-          echo "upload_url=$(cat release_url.txt)" >> $GITHUB_OUTPUT
+          value=`cat release_url.txt`
+          echo "upload_url=$value" >> $GITHUB_OUTPUT
       
       # ビルド成果物をダウンロード
       - name: Download artifact
