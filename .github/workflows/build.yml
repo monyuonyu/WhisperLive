@@ -55,15 +55,26 @@ jobs:
 
     # 依存パッケージのインストール
     - name: Install dependencies
+      shell: bash # 明示的にbashを指定
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller # 実行ファイル作成ツール
-        if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+        
+        # OS固有の依存関係インストール
+        if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
           # Linuxではportaudio関連の問題を回避するためpipでpyaudioをインストールする前にaptで必要なパッケージを確実にインストール
           pip install numpy requests pydub
           pip install --no-binary=pyaudio pyaudio
         else
           pip install -r requirements.txt
+        fi
+
+    # Windows用の依存関係インストール（PowerShell構文）
+    - name: Install Windows dependencies
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        pip install -r requirements.txt
 
     # PyInstallerを使って実行ファイルをビルド
     - name: Build with PyInstaller
