@@ -92,7 +92,7 @@ jobs:
           
       # リリースURLをログに出力
       - name: Output Release URL
-        run: echo 'Release URL: ${{ steps.create_release.outputs.upload_url }}'
+        run: echo "Release URL -> ${{ steps.create_release.outputs.upload_url }}"
         
       # リリースURLを次のジョブで使用するためにファイルに保存
       - name: Store release url
