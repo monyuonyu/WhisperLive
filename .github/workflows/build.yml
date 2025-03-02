@@ -101,7 +101,7 @@ jobs:
       # リポジトリのチェックアウト（タグ情報を取得するため）
       - uses: actions/checkout@v4
       
-      # GitHubリリースを作成（新しい方法）
+      # GitHubリリースを作成（自動リリースノート付き）
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -110,6 +110,7 @@ jobs:
           name: WhisperLive ${{ github.ref_name }}
           draft: true # 下書きとして作成（手動で公開する必要あり）
           prerelease: false # 正式リリースとしてマーク
+          generate_release_notes: true # GitHub Actions が自動でリリースノートを生成
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
