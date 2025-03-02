@@ -25,15 +25,33 @@
   - pydub
   - tkinter (GUIモード用、Pythonに標準搭載)
 
-## インストール
+## ダウンロードとインストール
+
+### 実行ファイルを使用する（推奨）
+
+最も簡単な方法は、ビルド済みの実行ファイルをダウンロードすることです。
+
+1. [GitHub Releases](https://github.com/monyuonyu/WhisperLive/releases) ページを開きます
+2. 最新リリースを選択します
+3. お使いのプラットフォームに合わせてファイルをダウンロードしてください：
+   - Windows: `WhisperLive-Windows.exe`
+   - Linux: `WhisperLive-Linux` （ダウンロード後に `chmod +x WhisperLive-Linux` で実行権限を付与してください）
+4. ダウンロードしたファイルをダブルクリックすると、アプリケーションが起動します
+
+### ソースコードからの実行
+
+開発やカスタマイズを行いたい場合は、ソースコードから直接実行できます：
 
 ```bash
-# リポジトリをクローン
+# リポジトリのクローン
 git clone https://github.com/monyuonyu/WhisperLive.git
 cd WhisperLive
 
-# 依存パッケージをインストール
+# 依存関係のインストール
 pip install -r requirements.txt
+
+# アプリケーションの実行
+python gui.py
 ```
 
 ## 使い方
