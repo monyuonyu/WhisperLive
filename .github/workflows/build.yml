@@ -177,7 +177,27 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ./ # ルートディレクトリに直接ダウンロード
+          path: ./
+          
+      # ビルドファイルをリネーム（必要に応じて）
+      - name: Rename files if needed
+        shell: bash
+        run: |
+          echo "ダウンロードしたファイル:"
+          ls -la
+          
+          if [ -f "WhisperLive.exe" ] && [ "${{ matrix.asset_name }}" = "WhisperLive-Windows.exe" ]; then
+            mv WhisperLive.exe ${{ matrix.asset_name }}
+            echo "Windowsファイルをリネームしました"
+          fi
+          
+          if [ -f "WhisperLive" ] && [ "${{ matrix.asset_name }}" = "WhisperLive-Linux" ]; then
+            mv WhisperLive ${{ matrix.asset_name }}
+            echo "Linuxファイルをリネームしました"
+          fi
+          
+          echo "リネーム後のファイル一覧:"
+          ls -la
           
       # 成果物の存在確認とデバッグ
       - name: List downloaded artifacts
