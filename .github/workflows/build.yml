@@ -89,7 +89,7 @@ jobs:
         path: dist/${{ matrix.artifact_name }}
 
   # =============================================================================
-  # リリース作成ジョブ：リリースページを作成します
+  # リリース作成ジョブ：リリースページを作成し、アセットをアップロードします
   # =============================================================================
   create_release:
     name: Create Release
@@ -101,8 +101,51 @@ jobs:
       # リポジトリのチェックアウト（タグ情報を取得するため）
       - uses: actions/checkout@v4
       
+      # Windows用の実行ファイルをダウンロード
+      - name: Download Windows executable
+        uses: actions/download-artifact@v4
+        with:
+          name: WhisperLive-Windows.exe
+          path: ./assets/
+          
+      # Linux用の実行ファイルをダウンロード
+      - name: Download Linux executable
+        uses: actions/download-artifact@v4
+        with:
+          name: WhisperLive-Linux
+          path: ./assets/
+      
+      # 成果物の存在確認とデバッグ
+      - name: List downloaded artifacts
+        shell: bash
+        run: |
+          echo "ダウンロードされた成果物:"
+          find ./assets -type f | sort
+          echo "ファイル詳細:"
+          ls -la ./assets/
+      
+      # ファイルをリネーム（必要に応じて）
+      - name: Rename files if needed
+        shell: bash
+        run: |
+          cd ./assets
+          if [ -f "WhisperLive.exe" ]; then
+            mv WhisperLive.exe WhisperLive-Windows.exe
+            echo "Windowsファイルをリネームしました"
+          fi
+          
+          if [ -f "WhisperLive" ]; then
+            mv WhisperLive WhisperLive-Linux
+            echo "Linuxファイルをリネームしました"
+          fi
+          
+          chmod +x WhisperLive-Linux || echo "Linuxファイルの権限設定に失敗しました（存在しない可能性があります）"
+          
+          echo "リネーム後のファイル一覧:"
+          ls -la
+      
       # GitHubリリースを作成（自動リリースノート付き）
-      - name: Create Release
+      - name: Create Release with Assets
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
@@ -121,109 +164,14 @@ jobs:
             - Linux ユーザー: `WhisperLive-Linux` をダウンロードして実行権限を付与してください
             
             ## 自動生成されたリリースノート
+          files: |
+            ./assets/WhisperLive-Windows.exe
+            ./assets/WhisperLive-Linux
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
-      # リリースIDを次のジョブで使用するためにファイルに保存
-      - name: Store release ID
-        run: echo "${{ steps.create_release.outputs.id }}" > release_id.txt
-        
-      # リリースIDをアーティファクトとしてアップロード
-      - name: Upload release ID
-        uses: actions/upload-artifact@v4
-        with:
-          name: release_id
-          path: release_id.txt
-
-  # =============================================================================
-  # アセットアップロードジョブ：ビルド成果物をリリースにアップロードします
-  # =============================================================================
-  upload_assets:
-    name: Upload Assets
-    needs: create_release # リリース作成ジョブが完了したら実行
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # アセットアップロードに必要な権限
-    strategy:
-      matrix:
-        include:
-          # Windows用実行ファイル
-          - artifact_name: WhisperLive-Windows.exe
-            asset_name: WhisperLive-Windows.exe
-          # Linux用実行ファイル
-          - artifact_name: WhisperLive-Linux
-            asset_name: WhisperLive-Linux
-    
-    steps:
-      # リポジトリのチェックアウト
-      - uses: actions/checkout@v4
-      
-      # 前のジョブで保存したリリースIDをダウンロード
-      - name: Download release ID
-        uses: actions/download-artifact@v4
-        with:
-          name: release_id
-          
-      # リリースIDを取得
-      - name: Get release ID
-        id: get_release_info
+      # リリース URL を出力
+      - name: Output Release URL
         shell: bash
         run: |
-          value=`cat release_id.txt`
-          echo "release_id=$value" >> $GITHUB_OUTPUT
-          
-      # ビルド成果物をダウンロード - 出力パスを短くする
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ./
-          
-      # ビルドファイルをリネーム（必要に応じて）
-      - name: Rename files if needed
-        shell: bash
-        run: |
-          echo "ダウンロードしたファイル:"
-          ls -la
-          
-          if [ -f "WhisperLive.exe" ] && [ "${{ matrix.asset_name }}" = "WhisperLive-Windows.exe" ]; then
-            mv WhisperLive.exe ${{ matrix.asset_name }}
-            echo "Windowsファイルをリネームしました"
-          fi
-          
-          if [ -f "WhisperLive" ] && [ "${{ matrix.asset_name }}" = "WhisperLive-Linux" ]; then
-            mv WhisperLive ${{ matrix.asset_name }}
-            echo "Linuxファイルをリネームしました"
-          fi
-          
-          echo "リネーム後のファイル一覧:"
-          ls -la
-          
-      # 成果物の存在確認とデバッグ
-      - name: List downloaded artifacts
-        shell: bash
-        run: |
-          echo "現在のディレクトリ:"
-          pwd
-          echo "ダウンロードされた成果物:"
-          find . -type f -maxdepth 1 | sort
-          echo "ファイル詳細:"
-          ls -la
-          
-      # ファイルに実行権限を付与（Linux用）
-      - name: Set executable permission for Linux
-        if: endsWith(matrix.asset_name, '-Linux')
-        shell: bash
-        run: |
-          chmod +x ${{ matrix.asset_name }}
-          echo "権限を設定したファイル:"
-          ls -la ${{ matrix.asset_name }}
-
-      # 成果物をリリースにアセットとして追加（修正版）
-      - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: ${{ matrix.asset_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "リリースが作成されました: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
