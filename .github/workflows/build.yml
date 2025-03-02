@@ -36,11 +36,11 @@ jobs:
 
     steps:
     # リポジトリのチェックアウト
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       
     # Pythonのセットアップ
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '3.9' # 使用するPythonのバージョンを指定
         
@@ -65,7 +65,7 @@ jobs:
 
     # ビルドされた成果物をアップロード
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.asset_name }}
         path: dist/${{ matrix.artifact_name }}
@@ -77,33 +77,34 @@ jobs:
     name: Create Release
     needs: build # ビルドジョブが完了したら実行
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # リリース作成に必要な権限
     steps:
-      # GitHubリリースを作成
+      # リポジトリのチェックアウト（タグ情報を取得するため）
+      - uses: actions/checkout@v4
+      
+      # GitHubリリースを作成（新しい方法）
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHubが自動生成するトークン
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }} # プッシュされたタグ名
-          release_name: WhisperLive ${{ github.ref }} # リリース名
+          tag_name: ${{ github.ref_name }}
+          name: WhisperLive ${{ github.ref_name }}
           draft: true # 下書きとして作成（手動で公開する必要あり）
           prerelease: false # 正式リリースとしてマーク
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
-      # リリースURLをログに出力
-      - name: Output Release URL
-        run: echo "Release URL -> ${{ steps.create_release.outputs.upload_url }}"
+      # リリースIDを次のジョブで使用するためにファイルに保存
+      - name: Store release ID
+        run: echo "${{ steps.create_release.outputs.id }}" > release_id.txt
         
-      # リリースURLを次のジョブで使用するためにファイルに保存
-      - name: Store release url
-        run: echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
-        
-      # リリースURLをアーティファクトとしてアップロード
-      - name: Upload release url
-        uses: actions/upload-artifact@v2
+      # リリースIDをアーティファクトとしてアップロード
+      - name: Upload release ID
+        uses: actions/upload-artifact@v4
         with:
-          name: release_url
-          path: release_url.txt
+          name: release_id
+          path: release_id.txt
 
   # =============================================================================
   # アセットアップロードジョブ：ビルド成果物をリリースにアップロードします
@@ -112,46 +113,53 @@ jobs:
     name: Upload Assets
     needs: create_release # リリース作成ジョブが完了したら実行
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # アセットアップロードに必要な権限
     strategy:
       matrix:
         include:
           # Windows用実行ファイル
           - artifact_name: WhisperLive-Windows.exe
             asset_name: WhisperLive-Windows.exe
-            asset_content_type: application/octet-stream
           # Linux用実行ファイル
           - artifact_name: WhisperLive-Linux
             asset_name: WhisperLive-Linux
-            asset_content_type: application/octet-stream
     
     steps:
-      # 前のジョブで保存したリリースURLをダウンロード
-      - name: Download release url
-        uses: actions/download-artifact@v2
+      # リポジトリのチェックアウト
+      - uses: actions/checkout@v4
+      
+      # 前のジョブで保存したリリースIDをダウンロード
+      - name: Download release ID
+        uses: actions/download-artifact@v4
         with:
-          name: release_url
+          name: release_id
           
-      # リリースURLを環境変数に設定（修正版：OSに依存しない書き方）
-      - name: Get release file
+      # リリースIDを取得
+      - name: Get release ID
         id: get_release_info
         shell: bash
         run: |
-          value=`cat release_url.txt`
-          echo "upload_url=$value" >> $GITHUB_OUTPUT
+          value=`cat release_id.txt`
+          echo "release_id=$value" >> $GITHUB_OUTPUT
       
       # ビルド成果物をダウンロード
       - name: Download artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           
-      # 成果物をリリースにアセットとしてアップロード
+      # ファイルに実行権限を付与（Linux用）
+      - name: Set executable permission for Linux
+        if: endsWith(matrix.asset_name, '-Linux')
+        run: chmod +x ${{ matrix.asset_name }}
+          
+      # 成果物をリリースにアセットとして追加（新しい方法）
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHubトークン
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.get_release_info.outputs.upload_url }} # リリースのアップロードURL
-          asset_path: ${{ matrix.asset_name }} # アップロードするファイルのパス
-          asset_name: ${{ matrix.asset_name }} # リリースページでの表示名
-          asset_content_type: ${{ matrix.asset_content_type }} # ファイルのMIMEタイプ
+          tag_name: ${{ github.ref_name }}
+          files: ${{ matrix.asset_name }}
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
