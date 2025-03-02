@@ -111,6 +111,16 @@ jobs:
           draft: true # 下書きとして作成（手動で公開する必要あり）
           prerelease: false # 正式リリースとしてマーク
           generate_release_notes: true # GitHub Actions が自動でリリースノートを生成
+          body: |
+            # WhisperLive ${{ github.ref_name }} リリース
+            
+            このリリースには、Windows および Linux 用のビルド済み実行ファイルが含まれています。
+            
+            ## ダウンロード方法
+            - Windows ユーザー: `WhisperLive-Windows.exe` をダウンロードしてください
+            - Linux ユーザー: `WhisperLive-Linux` をダウンロードして実行権限を付与してください
+            
+            ## 自動生成されたリリースノート
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
@@ -162,12 +172,12 @@ jobs:
           value=`cat release_id.txt`
           echo "release_id=$value" >> $GITHUB_OUTPUT
           
-      # ビルド成果物をダウンロード
+      # ビルド成果物をダウンロード - 出力パスを短くする
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ./artifacts # 明示的にディレクトリを指定
+          path: ./ # ルートディレクトリに直接ダウンロード
           
       # 成果物の存在確認とデバッグ
       - name: List downloaded artifacts
@@ -176,24 +186,24 @@ jobs:
           echo "現在のディレクトリ:"
           pwd
           echo "ダウンロードされた成果物:"
-          find ./artifacts -type f | sort
+          find . -type f -maxdepth 1 | sort
+          echo "ファイル詳細:"
+          ls -la
           
       # ファイルに実行権限を付与（Linux用）
       - name: Set executable permission for Linux
         if: endsWith(matrix.asset_name, '-Linux')
         shell: bash
         run: |
-          find ./artifacts -type f -name "${{ matrix.asset_name }}" -exec chmod +x {} \;
-          # パスを修正して権限を確認
+          chmod +x ${{ matrix.asset_name }}
           echo "権限を設定したファイル:"
-          ls -la ./artifacts/
+          ls -la ${{ matrix.asset_name }}
 
-      # 成果物をリリースにアセットとして追加
+      # 成果物をリリースにアセットとして追加（修正版）
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          files: ./artifacts/${{ matrix.asset_name }} # パスを修正
-          draft: true
+          files: ${{ matrix.asset_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
